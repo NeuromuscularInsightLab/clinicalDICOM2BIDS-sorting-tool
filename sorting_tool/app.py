@@ -26,6 +26,11 @@ HOW TO EXTEND
   ``MainWindow.__init__`` if you need a custom folder name.
 * File dialogs when CLI paths are omitted: ``prompt_directories``.
 * Keep save copy-only — never write back to the input tree from this file.
+* Subject/Session CLI overrides (``--subject_id`` / ``--session_id`` in
+  ``__main__``) flow through ``run_app`` into ``MainWindow.__init__`` as
+  ``subject_id_override`` / ``session_id_override``. When set, they win
+  over the per-scan ``metadata.extract_meta`` guess in ``load_index``, but
+  the fields stay editable per scan.
 """
 
 from __future__ import annotations
@@ -130,12 +135,24 @@ class RadioRow(QWidget):
 class MainWindow(QMainWindow):
     """Primary GUI: ortho viewer + metadata/labels + Previous/Next/Save."""
 
-    def __init__(self, input_dir: Path, output_dir: Path, scans: list[Path]):
+    def __init__(
+        self,
+        input_dir: Path,
+        output_dir: Path,
+        scans: list[Path],
+        subject_id_override: str | None = None,
+        session_id_override: str | None = None,
+    ):
         """
         Construct the window for an already-discovered scan list.
 
         ``dataset_out`` is ``<output>/<input_folder_name>/``, matching the
         folder ``bids.save_to_bids`` writes into and where progress is stored.
+
+        ``subject_id_override`` / ``session_id_override`` come from the
+        ``--subject_id`` / ``--session_id`` CLI flags. When set, they
+        prefill every scan's Subject/Session field instead of the guess
+        from ``metadata.extract_meta`` (still editable per scan).
         """
         super().__init__()
         self.input_dir = Path(input_dir)
@@ -145,6 +162,8 @@ class MainWindow(QMainWindow):
         self.scans = scans
         self.index = 0
         self.current_meta: ScanMeta | None = None
+        self.subject_id_override = subject_id_override
+        self.session_id_override = session_id_override
 
         self.setWindowTitle("MRI Sorting Tool")
         self.resize(1280, 920)
@@ -280,8 +299,17 @@ class MainWindow(QMainWindow):
         self.protocol_label.setText(f"Protocol Description: {meta.protocol or '—'}")
         self.series_label.setText(f"Series Description: {meta.series or '—'}")
         self._show_sidecar(path, meta.sidecar)
-        self.subject_edit.setText(meta.subject_id)
-        self.session_edit.setText(meta.session_id)
+        # CLI --subject_id / --session_id win over the per-scan guess.
+        self.subject_edit.setText(
+            self.subject_id_override
+            if self.subject_id_override is not None
+            else meta.subject_id
+        )
+        self.session_edit.setText(
+            self.session_id_override
+            if self.session_id_override is not None
+            else meta.session_id
+        )
         self.acq_row.set_selected(meta.guess_acq)
         self.voi_row.set_selected(meta.guess_voi)
         # Default CE to false when the heuristic has no opinion (required field).
@@ -383,9 +411,18 @@ def prompt_directories() -> tuple[Path, Path] | None:
     return Path(in_dir), Path(out_dir)
 
 
-def run_app(input_dir: Path | None = None, output_dir: Path | None = None) -> int:
+def run_app(
+    input_dir: Path | None = None,
+    output_dir: Path | None = None,
+    subject_id: str | None = None,
+    session_id: str | None = None,
+) -> int:
     """
     Discover scans and start the Qt event loop with ``MainWindow``.
+
+    ``subject_id`` / ``session_id`` are optional CLI overrides (see
+    ``__main__``) forwarded straight into ``MainWindow`` as
+    ``subject_id_override`` / ``session_id_override``.
 
     Returns the ``QApplication.exec()`` exit code, or 1 on cancel / empty
     input / missing directory.
@@ -414,6 +451,12 @@ def run_app(input_dir: Path | None = None, output_dir: Path | None = None) -> in
         QMessageBox.warning(None, "No scans", f"No .nii/.nii.gz files under:\n{input_dir}")
         return 1
 
-    win = MainWindow(input_dir, output_dir, scans)
+    win = MainWindow(
+        input_dir,
+        output_dir,
+        scans,
+        subject_id_override=subject_id,
+        session_id_override=session_id,
+    )
     win.show()
     return app.exec()
