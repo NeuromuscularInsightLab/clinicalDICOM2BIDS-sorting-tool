@@ -30,6 +30,13 @@ HOW TO EXTEND
 * Change the interactive prompt wording: edit the ``input(...)`` strings.
 * Do not put GUI code here — keep this module thin so it can run headless
   argument parsing before Qt is imported.
+* ``--subject_id`` / ``--session_id`` are optional overrides: when set,
+  every scan in this run prefills with these values instead of the
+  per-scan sidecar/filename guess from ``metadata.extract_meta``. The
+  fields stay editable in the GUI either way. Values are sanitized the
+  same as manual GUI entries (a leading ``sub-``/``ses-`` is stripped),
+  so ``--subject_id sub-CUSTOMID001`` and ``--subject_id CUSTOMID001``
+  behave the same.
 """
 
 from __future__ import annotations
@@ -69,6 +76,26 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Output directory for BIDS-like sorted data",
     )
+    parser.add_argument(
+        "--subject_id",
+        type=str,
+        default=None,
+        help=(
+            "Optional Subject ID override applied to every scan in this run "
+            "(instead of the per-scan guess from the JSON sidecar/filename). "
+            "A leading 'sub-' is stripped automatically."
+        ),
+    )
+    parser.add_argument(
+        "--session_id",
+        type=str,
+        default=None,
+        help=(
+            "Optional Session ID override applied to every scan in this run "
+            "(instead of the per-scan guess from the JSON sidecar/filename). "
+            "A leading 'ses-' is stripped automatically."
+        ),
+    )
     args = parser.parse_args(argv)
 
     # Interactive path prompts when flags omitted (common for lab users).
@@ -89,7 +116,12 @@ def main(argv: list[str] | None = None) -> int:
     # Deferred import: avoid loading Qt/nibabel until paths are known.
     from sorting_tool.app import run_app
 
-    return run_app(args.input, args.output)
+    return run_app(
+        args.input,
+        args.output,
+        subject_id=args.subject_id,
+        session_id=args.session_id,
+    )
 
 
 if __name__ == "__main__":

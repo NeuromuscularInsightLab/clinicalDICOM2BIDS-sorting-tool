@@ -113,6 +113,21 @@ The terminal will ask:
 1. `Input folder path:` — paste or type the **input folder PATH** (root folder that contains your NIfTI scans). The tool searches this folder recursively for `.nii` / `.nii.gz`.
 2. `Output folder path:` — paste or type the **output folder PATH** (parent directory for sorted BIDS results). The tool creates a subfolder named after the input folder inside this path.
 
+#### Optional flags (skip the prompts)
+
+`--input` / `-i` and `--output` / `-o` supply the paths up front instead of
+the interactive prompts. `--subject_id` and `--session_id` are optional
+and pre-fill the **Subject ID** / **Session ID** fields for *every* scan
+in the run — useful when a whole input folder belongs to one subject/
+session and you don't want to rely on the JSON sidecar guess. Both fields
+stay editable per scan in the GUI, and a leading `sub-`/`ses-` on the
+flag value is stripped automatically.
+
+```bash
+sorting-tool --input /home/kenweber/raw --output /home/kenweber/output \
+  --subject_id sub-CUSTOMID001 --session_id ses-CUSTOMNAME
+```
+
 Then the GUI window opens.
 
 Sorted copies are written under:
