@@ -111,7 +111,7 @@ class TestBids(unittest.TestCase):
             self.assertEqual(dest.name, expected_name)
             self.assertTrue(
                 str(dest.resolve()).endswith(
-                    f"TestData/sub-amuAL/ses-20220812/{expected_name}"
+                    f"sub-amuAL/ses-20220812/{expected_name}"
                 )
             )
             js = dest.with_name(dest.name.replace(".nii.gz", ".json"))
@@ -144,7 +144,6 @@ class TestBids(unittest.TestCase):
         # Folders fall back to sub-unknown / ses-unknown when IDs are blank.
         nii, _ = build_bids_paths(
             Path(tempfile.gettempdir()),
-            "MyDataset",
             "",
             "",
             "axial",

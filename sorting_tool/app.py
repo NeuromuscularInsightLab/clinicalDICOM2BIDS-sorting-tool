@@ -22,8 +22,10 @@ HOW TO EXTEND
   ``save_to_bids`` (via ``labels=`` or a new kwarg), and update ``metadata``
   option lists / README.
 * Change post-save navigation: edit the loop at the end of ``save_scan``.
-* Dataset naming: today ``dataset_name = input_dir.name``; override in
-  ``MainWindow.__init__`` if you need a custom folder name.
+* Dataset naming: today ``dataset_name = input_dir.name``; it is recorded
+  in each destination sidecar's ``SortingTool.dataset`` field but no
+  longer creates an output subfolder (see ``bids.py``). Override in
+  ``MainWindow.__init__`` if you need a custom value.
 * File dialogs when CLI paths are omitted: ``prompt_directories``.
 * Keep save copy-only — never write back to the input tree from this file.
 * Subject/Session CLI overrides (``--subject_id`` / ``--session_id`` in
@@ -146,8 +148,10 @@ class MainWindow(QMainWindow):
         """
         Construct the window for an already-discovered scan list.
 
-        ``dataset_out`` is ``<output>/<input_folder_name>/``, matching the
-        folder ``bids.save_to_bids`` writes into and where progress is stored.
+        ``dataset_out`` is the resolved ``output_dir``, matching the folder
+        ``bids.save_to_bids`` writes ``sub-*/ses-*/`` into and where
+        progress (``sorting_progress.json``) is stored — there is no
+        per-dataset/accession subfolder.
 
         ``subject_id_override`` / ``session_id_override`` come from the
         ``--subject_id`` / ``--session_id`` CLI flags. When set, they
@@ -158,7 +162,7 @@ class MainWindow(QMainWindow):
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir)
         self.dataset_name = self.input_dir.name
-        self.dataset_out = dataset_root(self.output_dir, self.dataset_name)
+        self.dataset_out = dataset_root(self.output_dir)
         self.scans = scans
         self.index = 0
         self.current_meta: ScanMeta | None = None

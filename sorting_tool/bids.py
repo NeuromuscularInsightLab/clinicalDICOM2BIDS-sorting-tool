@@ -15,9 +15,14 @@ app.MainWindow.save_scan()
 
 Folder layout::
 
-    <output>/<dataset>/sub-<id|unknown>/ses-<id|unknown>/
+    <output>/sub-<id|unknown>/ses-<id|unknown>/
         [sub-…]_[ses-…]_acq-…_voi-…_ce-true|false[_run-N]_<suffix>.nii.gz
         …same stem….json
+
+Scans go straight into ``<output_dir>``: there is no per-dataset/accession
+subfolder. ``dataset_name`` is still accepted by ``save_to_bids`` and
+recorded in the destination sidecar's ``SortingTool.dataset`` field, but it
+no longer affects the destination path.
 
 HOW TO EXTEND
 -------------
@@ -25,6 +30,8 @@ HOW TO EXTEND
 * Add a new entity (e.g. ``desc-``): update stem builder + ``save_to_bids``
   payload and the GUI; remember lab policy currently omits ``desc-``.
 * Change collision handling: adjust the ``_run-N`` loop in ``build_bids_paths``.
+* Re-add a per-dataset subfolder: join ``dataset_name`` back into
+  ``dataset_root()``.
 * Destination sidecar ``SortingTool`` keys today::
 
       source, dataset, subject_id, session_id, acq, voi, ce, type
@@ -128,22 +135,20 @@ def build_stem(
     return "_".join(parts) + f"_{suffix}"
 
 
-def dataset_root(output_dir: Path, dataset_name: str) -> Path:
+def dataset_root(output_dir: Path) -> Path:
     """
-    Return ``<output_dir>/<dataset_name>`` (basename only for safety).
+    Return the output root that labeled scans are copied into.
 
-    Using ``Path(...).name`` strips any accidental directory components so
-    a pasted path cannot escape the output parent.
+    This is just the resolved ``output_dir`` — scans are no longer nested
+    under a per-dataset/accession subfolder (see module docstring). Kept as
+    a thin wrapper so ``app.py``'s progress-file lookup and
+    ``build_bids_paths`` agree on where "the output root" is.
     """
-    name = Path(str(dataset_name).strip()).name
-    if not name:
-        raise ValueError("dataset name is required")
-    return Path(output_dir).expanduser().resolve() / name
+    return Path(output_dir).expanduser().resolve()
 
 
 def build_bids_paths(
     output_dir: Path,
-    dataset_name: str,
     subject_id: str,
     session_id: str,
     acq: str,
@@ -153,12 +158,12 @@ def build_bids_paths(
     ext: str = ".nii.gz",
 ) -> tuple[Path, Path]:
     """
-    Return ``(nii_dest, json_dest)`` under ``<output>/<dataset>/sub-*/ses-*/``.
+    Return ``(nii_dest, json_dest)`` under ``<output_dir>/sub-*/ses-*/``.
 
     Creates the session directory if needed. If the default stem already
     exists, inserts ``_run-1``, ``_run-2``, … until a free name is found.
     """
-    root = dataset_root(output_dir, dataset_name)
+    root = dataset_root(output_dir)
     if not str(scan_type).strip():
         raise ValueError("scan type is required")
 
@@ -227,7 +232,6 @@ def save_to_bids(
     ext = _nii_extension(source_nii)
     dest_nii, dest_json = build_bids_paths(
         output_dir,
-        dataset_name,
         subject_id,
         session_id,
         acq,
@@ -262,7 +266,7 @@ def save_to_bids(
     with dest_json.open("w") as f:
         json.dump(payload, f, indent=2)
 
-    # Progress is stored under the dataset root (same place the GUI checks).
-    root = dataset_root(output_dir, dataset_name)
+    # Progress is stored under the output root (same place the GUI checks).
+    root = dataset_root(output_dir)
     mark_saved(root, source_nii, dest_nii)
     return dest_nii

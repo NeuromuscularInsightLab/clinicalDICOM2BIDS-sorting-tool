@@ -54,7 +54,7 @@ invariant.
 | Module | Owns | Talks to | Edit it when you want to... |
 |---|---|---|---|
 | [`__main__.py`](sorting_tool/__main__.py) | CLI arg parsing / interactive path prompts | calls `app.run_app` | add a CLI flag, change prompt wording, add a non-GUI batch mode |
-| [`app.py`](sorting_tool/app.py) | `MainWindow` (orchestration/layout), `RadioRow` widget, `prompt_directories`, `run_app` | calls `discovery`, `metadata`, `viewer`, `bids`; owns no filename/BIDS logic itself | add/rearrange a GUI field, change post-save navigation, change how the output dataset folder is named |
+| [`app.py`](sorting_tool/app.py) | `MainWindow` (orchestration/layout), `RadioRow` widget, `prompt_directories`, `run_app` | calls `discovery`, `metadata`, `viewer`, `bids`; owns no filename/BIDS logic itself | add/rearrange a GUI field, change post-save navigation, change what `dataset_name` (recorded in the sidecar) is set to |
 | [`discovery.py`](sorting_tool/discovery.py) | finding scans (`discover_scans`) and the `sorting_progress.json` "already saved" tracker | called by `app` (find scans, check saved) and `bids` (`mark_saved` after a copy) | support another input extension, change where/how progress is persisted |
 | [`metadata.py`](sorting_tool/metadata.py) | `ScanMeta`, sidecar/filename parsing, the `*_OPTIONS` label vocabularies, and all `_guess_*` heuristics | called by `app.load_index` to prefill fields; `sidecar_for()` also used by `bids` to locate the source JSON | add/rename a label choice (Acq/VOI/CE/Type — also update the README table below), improve auto-detection of subject/session/plane/anatomy/type |
 | [`bids.py`](sorting_tool/bids.py) | destination path/filename construction (`build_stem`, `build_bids_paths`), the actual copy + sidecar write (`save_to_bids`), entity sanitizing | called by `app.save_scan`; calls `metadata.sidecar_for` and `discovery.mark_saved` | change filename/folder naming convention, add a new BIDS entity, change collision (`_run-N`) handling, change what's stored in the destination sidecar's `SortingTool` block |
@@ -111,7 +111,7 @@ sorting-tool
 The terminal will ask:
 
 1. `Input folder path:` — paste or type the **input folder PATH** (root folder that contains your NIfTI scans). The tool searches this folder recursively for `.nii` / `.nii.gz`.
-2. `Output folder path:` — paste or type the **output folder PATH** (parent directory for sorted BIDS results). The tool creates a subfolder named after the input folder inside this path.
+2. `Output folder path:` — paste or type the **output folder PATH**. Sorted scans are written directly under this folder (no extra subfolder is created).
 
 #### Optional flags (skip the prompts)
 
@@ -124,7 +124,7 @@ stay editable per scan in the GUI, and a leading `sub-`/`ses-` on the
 flag value is stripped automatically.
 
 ```bash
-sorting-tool --input /home/kenweber/raw --output /home/kenweber/output \
+sorting-tool --input /home/user/raw --output /home/user/output \
   --subject_id sub-CUSTOMID001 --session_id ses-CUSTOMNAME
 ```
 
@@ -133,7 +133,7 @@ Then the GUI window opens.
 Sorted copies are written under:
 
 ```text
-/OUTPUT/FOLDER/PATH/<input_folder_name>/sub-<ID>/ses-<sessionid>/...
+/OUTPUT/FOLDER/PATH/sub-<ID>/ses-<sessionid>/...
 ```
 
 Original files under the input folder PATH are never modified or moved.
@@ -160,15 +160,19 @@ Original files under the input folder PATH are never modified or moved.
 
 ## Output naming
 
-Top-level folder matches the **input dataset folder name**:
+Scans are copied straight under the output folder — there is **no**
+per-dataset/accession subfolder:
 
 ```text
-<output>/<input_dataset_name>/
+<output>/
   sub-<subjectid|/unknown>/
     ses-<sessionid|/unknown>/
       [sub-<subjectid>_][ses-<sessionid>_]acq-<acq>_voi-<voi>_ce-<true|false>[_run-N]_<suffix>.nii.gz
       [sub-<subjectid>_][ses-<sessionid>_]acq-<acq>_voi-<voi>_ce-<true|false>[_run-N]_<suffix>.json
 ```
+
+The input folder name is still recorded as `dataset` in each destination
+sidecar's `SortingTool` block, it just no longer determines a folder.
 
 - **Subject ID** and **Session ID** are optional. If blank, they are omitted from the **filename**, and folders use `sub-unknown` / `ses-unknown`.
 - There is **no** `desc-` entity. Contrast is encoded as **`ce-true`** or **`ce-false`**.
@@ -189,7 +193,7 @@ sub-subjectid_ses-sessionid_acq-axial_voi-lumbarspine_ce-false_t1w.nii.gz
 | `ce` | `true`, `false` |
 | suffix | `t1w`, `t2w`, `t2sfatsat`, `t1wfatsat`, `t2star`, `mtoff_MTS`, `mton_MTS`, `t1w_MTS`, `stir`, `flair`, `dwi`, `func`, `fat`, `water`, `inphase`, `outphase` |
 
-Progress is tracked in `sorting_progress.json` under the dataset output folder.
+Progress is tracked in `sorting_progress.json` directly under the output folder.
 
 ## Tests
 
