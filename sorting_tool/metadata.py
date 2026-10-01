@@ -74,7 +74,7 @@ CE_OPTIONS = ["true", "false"]
 TYPE_OPTIONS = [
     "t1w",
     "t2w",
-    "t2sfatsat",
+    "t2wfatsat",
     "t1wfatsat",
     "t2star",
     "mtoff_MTS",
@@ -247,7 +247,7 @@ def _guess_acq(sidecar: dict, path: Path) -> str | None:
         for k in ("ImageOrientationText", "SeriesDescription", "ProtocolName")
     ).lower()
     text += " " + path.name.lower()
-    if re.search(r"\b(ax|axial)\b", text):
+    if re.search(r"\b(ax|axial|tra|transverse)\b", text):
         return "axial"
     if re.search(r"\b(sag|sagittal)\b", text):
         return "sagittal"
@@ -345,9 +345,9 @@ def _guess_type(sidecar: dict, path: Path) -> str | None:
         (r"mtoff|mt.?off", "mtoff_MTS"),
         (r"mton|mt.?on", "mton_MTS"),
         (r"t1w?.?mts|mts.*t1", "t1w_MTS"),
-        (r"t2.?sfatsat|t2w?.*fat.?sat|t2.*\bfs\b", "t2sfatsat"),
+        (r"t2.?wfatsat|t2w?.*fat.?sat|t2.*\bfs\b", "t2wfatsat"),
         (r"t1.?wfatsat|t1w?.*fat.?sat|t1.*\bfs\b", "t1wfatsat"),
-        (r"t2\*|t2star|t2.?star", "t2star"),
+        (r"t2\*|t2star|t2.?star|merge|medic|megre", "t2star"),
         (r"\bstir\b", "stir"),
         (r"\bflair\b", "flair"),
         (r"\bdwi\b|diffusion", "dwi"),
